@@ -118,3 +118,126 @@ figures = {'S': [['ooooo',
                   'ooooo']]}
 
 
+def pauseScreen():
+    pause = pg.Surface((600, 500), pg.SRCALPHA)
+    pause.fill((0, 0, 255, 127))
+    display_surf.blit(pause, (0, 0))
+
+
+def main():
+    global fps_clock, display_surf, basic_font, big_font
+    pg.init()
+    fps_clock = pg.time.Clock()
+    display_surf = pg.display.set_mode((window_w, window_h))
+    basic_font = pg.font.SysFont('arial', 20)
+    big_font = pg.font.SysFont('verdana', 45)
+    pg.display.set_caption('Тетрис')
+    showText('Тетрис')
+    while True:
+        runTetris()
+        pauseScreen()
+        showText('Игра закончена')
+
+
+def runTetris():
+    global i
+    cup = emptycup()
+    last_move_down = time.time()
+    last_side_move = time.time()
+    last_fall = time.time()
+    going_down = False
+    going_left = False
+    going_right = False
+    points = 0
+    level, fall_speed = calcSpeed(points)
+    fallingFig = getNewFig()
+    nextFig = getNewFig()
+
+    while True:
+        if fallingFig == None:
+            fallingFig = nextFig
+            nextFig = getNewFig()
+            last_fall = time.time()
+
+            if not checkPos(cup, fallingFig):
+                return
+        quitGame()
+        for event in pg.event.get():
+            if event.type == KEYUP:
+                if event.key == K_SPACE:
+                    pauseScreen()
+                    showText('Пауза')
+                    last_fall = time.time()
+                    last_move_down = time.time()
+                    last_side_move = time.time()
+                elif event.key == K_LEFT:
+                    going_left = False
+                elif event.key == K_RIGHT:
+                    going_right = False
+                elif event.key == K_DOWN:
+                    going_down = False
+
+            elif event.type == KEYDOWN:
+                if event.key == K_LEFT and checkPos(cup, fallingFig, adjX=-1):
+                    fallingFig['x'] -= 1
+                    going_left = True
+                    going_right = False
+                    last_side_move = time.time()
+
+                elif event.key == K_RIGHT and checkPos(cup, fallingFig, adjX=1):
+                    fallingFig['x'] += 1
+                    going_right = True
+                    going_left = False
+                    last_side_move = time.time()
+                elif event.key == K_UP:
+                    fallingFig['rotation'] = (fallingFig['rotation'] + 1) % len(figures[fallingFig['shape']])
+                    if not checkPos(cup, fallingFig):
+                        fallingFig['rotation'] = (fallingFig['rotation'] - 1) % len(figures[fallingFig['shape']])
+
+                elif event.key == K_DOWN:
+                    going_down = True
+                    if checkPos(cup, fallingFig, adjY=1):
+                        fallingFig['y'] += 1
+                    last_move_down = time.time()
+
+                elif event.key == K_RETURN:
+                    going_down = False
+                    going_left = False
+                    going_right = False
+                    for i in range(1, cup_h):
+                        if not checkPos(cup, fallingFig, adjY=i):
+                            break
+                    fallingFig['y'] += i - 1
+
+        if (going_left or going_right) and time.time() - last_side_move > side_freq:
+            if going_left and checkPos(cup, fallingFig, adjX=-1):
+                fallingFig['x'] -= 1
+            elif going_right and checkPos(cup, fallingFig, adjX=1):
+                fallingFig['x'] += 1
+            last_side_move = time.time()
+
+        if going_down and time.time() - last_move_down > down_freq and checkPos(cup, fallingFig, adjY=1):
+            fallingFig['y'] += 1
+            last_move_down = time.time()
+
+        if time.time() - last_fall > fall_speed:
+            if not checkPos(cup, fallingFig, adjY=1):
+                addToCup(cup, fallingFig)
+                points += clearCompleted(cup)
+                level, fall_speed = calcSpeed(points)
+                fallingFig = None
+            else:
+                fallingFig['y'] += 1
+                last_fall = time.time()
+
+        display_surf.fill(bg_color)
+        drawTitle()
+        gamecup(cup)
+        drawInfo(points, level)
+        drawnextFig(nextFig)
+        if fallingFig != None:
+            drawFig(fallingFig)
+        pg.display.update()
+        fps_clock.tick(fps)
+
+
